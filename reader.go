@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/zlib"
+	"encoding/ascii85"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -1429,12 +1430,27 @@ func (this *PdfReader) rebuildContentStream(content *PdfValue) ([]byte, error) {
 
 			// Set stream to uncompressed data
 			stream = out.Bytes()
+		case "ASCII85Decode":
+			stream, err = decodeASCII85(stream)
+			if err != nil {
+				return nil, errors.New("ASCII85Decode parse failed: " + err.Error())
+			}
 		default:
 			return nil, errors.New("Unspported filter: " + filters[i].Token)
 		}
 	}
 
 	return stream, nil
+}
+
+func decodeASCII85(encoded []byte) ([]byte, error) {
+	decoded := make([]byte, len(encoded)*5/4)
+	decoder := ascii85.NewDecoder(bytes.NewReader(encoded))
+	n, err := decoder.Read(decoded)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	return decoded[:n], nil
 }
 
 func (this *PdfReader) getNumPages() (int, error) {
